@@ -1,45 +1,110 @@
-# PROJETMECANO
+# PROJET MECANO
 
-Ce projet est désormais préparé pour l'exécution avec Docker et Terraform.
+Plateforme de mise en relation entre propriétaires de véhicules et mécaniciens, basée sur une architecture microservices Spring Boot.
 
-## Docker Compose
+## 🏗️ Architecture
 
-Lancer la stack Docker complète :
+| Service | Port | Description |
+|---|---|---|
+| **api-gateway** | `8080` | Passerelle centrale (Spring Cloud Gateway) |
+| **auth-service** | `8081` | Authentification et autorisation |
+| **user-service** | `8082` | Gestion des utilisateurs |
+| **geolocation-service** | `8083` | Géolocalisation des mécaniciens |
+| **subscription-service** | `8084` | Abonnements et paiements (Stripe) |
+| **notification-service** | `8085` | Notifications email et push |
+| **repair-service** | `8086` | Gestion des réparations |
+| **messaging-service** | `8087` | Messagerie entre utilisateurs (RabbitMQ) |
+| **admin-service** | `8088` | Administration |
+| **marketplace-service** | `8089` | Marketplace de pièces / services |
+| **discovery-server** | `8761` | Service registry (Eureka) |
+| **config-server** | `8888` | Configuration centralisée |
+
+### Infrastructure
+
+- **PostgreSQL 15** — Base de données relationnelle (port `5433`)
+- **RabbitMQ 3** — Message broker (port `5673`, management UI sur `15673`)
+
+## ✅ Prérequis
+
+- [Docker](https://docs.docker.com/get-docker/) et Docker Compose (v2+)
+- [Java 17+](https://adoptium.net/) (pour le développement hors Docker)
+- [Maven 3.8+](https://maven.apache.org/) (pour le développement hors Docker)
+
+## 🚀 Démarrage rapide
+
+### 1. Cloner le projet
+
+```bash
+git clone https://github.com/kenfackjunior183-creator/projetmecano.git
+cd projetmecano
+```
+
+### 2. Lancer avec Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-Services exposés :
-- `http://localhost:8080` → API Gateway
-- `http://localhost:8081` → Auth Service
-- `http://localhost:8082` → User Service
-- `http://localhost:8083` → Geolocation Service
-- `http://localhost:8084` → Subscription Service
-- `http://localhost:8085` → Notification Service
-- `http://localhost:8761` → Discovery Server
-- `http://localhost:8888` → Config Server
-- `http://localhost:15672` → RabbitMQ Management
+L'ensemble de la stack démarre automatiquement (base de données, RabbitMQ, discovery server, config server, puis tous les microservices).
 
-## Terraform
+### 3. Services exposés
 
-Le dossier `terraform/` contient une configuration Docker Terraform pour construire et lancer les mêmes services.
+| Service | URL |
+|---|---|
+| API Gateway | http://localhost:8080 |
+| Discovery Server (Eureka) | http://localhost:8761 |
+| Config Server | http://localhost:8888 |
+| RabbitMQ Management UI | http://localhost:15673 |
 
-Utilisation :
+## 🧪 Collection Postman
+
+Une collection Postman est fournie pour tester les API : `Mecano_API_Postman_Collection.json`
+
+Importe-la dans [Postman](https://www.postman.com/) pour accéder à tous les endpoints.
+
+## 📦 Bases de données
+
+PostgreSQL est initialisé automatiquement avec les bases suivantes (via `docker/postgres-init/init.sql`) :
+
+- `mecano_auth_db`
+- `mecano_users_db`
+- `mecano_geo_db`
+- `mecano_billing_db`
+- `mecano_notif_db`
+- `mecano_repair_db`
+- `mecano_marketplace_db`
+- `mecano_admin_db`
+
+## 🛠️ Développement
+
+Chaque service peut être lancé individuellement avec Maven :
 
 ```bash
-cd terraform
-terraform init
-terraform apply
+cd <service-name>
+./mvnw spring-boot:run
 ```
 
-Détruire l'infrastructure :
+Assure-toi que PostgreSQL et RabbitMQ sont accessibles et que les variables d'environnement sont correctement configurées (voir `docker-compose.yml`).
 
-```bash
-terraform destroy
+## 📂 Structure du projet
+
 ```
-
-## Notes
-
-- PostgreSQL initialise automatiquement les bases de données requises à partir de `docker/postgres-init/init.sql`.
-- Les services Spring Boot utilisent désormais des variables d'environnement pour la configuration Docker, l'adresse du config server et le discovery server.
+projetmecano/
+├── admin-service/
+├── api-gateway/
+├── auth-service/
+├── config-server/
+├── discovery-server/
+├── geolocation-service/
+├── marketplace-service/
+├── messaging-service/
+├── notification-service/
+├── repair-service/
+├── subscription-service/
+├── user-service/
+├── docker/
+│   └── postgres-init/
+│       └── init.sql
+├── docker-compose.yml
+├── Mecano_API_Postman_Collection.json
+└── README.md
