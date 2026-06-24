@@ -39,7 +39,25 @@ git clone https://github.com/kenfackjunior183-creator/projetmecano.git
 cd projetmecano
 ```
 
-### 2. Lancer avec Docker Compose
+### 2. Travailler avec Git
+
+```bash
+# Créer et basculer sur ta branche personnelle
+git checkout -b <nom-de-ta-branche>
+
+# ... faire tes modifications ...
+
+# Ajouter et commiter
+git add .
+git commit -m "Description de tes modifications"
+
+# Pousser UNIQUEMENT ta branche
+git push origin <nom-de-ta-branche>
+```
+
+> ⚠️ Pousse uniquement ta branche, jamais directement sur `main`.
+
+### 3. Lancer avec Docker Compose
 
 ```bash
 docker compose up --build
@@ -47,7 +65,7 @@ docker compose up --build
 
 L'ensemble de la stack démarre automatiquement (base de données, RabbitMQ, discovery server, config server, puis tous les microservices).
 
-### 3. Services exposés
+### 4. Services exposés
 
 | Service | URL |
 |---|---|
