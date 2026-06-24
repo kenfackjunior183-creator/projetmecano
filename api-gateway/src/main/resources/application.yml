@@ -1,0 +1,136 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  config:
+    import: optional:configserver:http://config-server:8888
+
+  cloud:
+    gateway:
+      routes:
+        # Auth Service — PUBLIC (pas de filtre JWT)
+        - id: auth-service
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/api/auth/**
+
+        # User Service — PROTÉGÉ
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/users/**, /api/automobilists/**, /api/mechanics/**
+          filters:
+            - AuthenticationFilter
+
+        # Geolocation — route publique (nearby + geocode)
+        - id: geolocation-service-public
+          uri: lb://GEOLOCATION-SERVICE
+          predicates:
+            - Path=/api/geolocation/nearby, /api/geolocation/geocode
+          # ✅ PAS de filtre AuthenticationFilter ici
+
+        # Geolocation — routes protégées
+        - id: geolocation-service-secured
+          uri: lb://GEOLOCATION-SERVICE
+          predicates:
+            - Path=/api/geolocation/**
+          filters:
+            - AuthenticationFilter
+
+        # Subscription — plans publics
+        - id: subscription-service-public
+          uri: lb://SUBSCRIPTION-SERVICE
+          predicates:
+            - Path=/api/subscriptions/plans, /api/subscriptions/webhook
+
+        # Subscription — routes protégées
+        - id: subscription-service-secured
+          uri: lb://SUBSCRIPTION-SERVICE
+          predicates:
+            - Path=/api/subscriptions/**
+          filters:
+            - AuthenticationFilter
+
+        # Notification Service — PROTÉGÉ
+        - id: notification-service
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - AuthenticationFilter
+
+        # Repair Service — routes protégées
+        - id: repair-service
+          uri: lb://REPAIR-SERVICE
+          predicates:
+            - Path=/api/repairs/**
+          filters:
+            - AuthenticationFilter
+
+        # Messaging Service — PROTÉGÉ
+        - id: messaging-service
+          uri: lb://MESSAGING-SERVICE
+          predicates:
+            - Path=/api/messaging/**
+          filters:
+            - AuthenticationFilter
+
+        # Admin Service — PROTÉGÉ (ROLE_ADMIN only)
+        - id: admin-service
+          uri: lb://ADMIN-SERVICE
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - AuthenticationFilter
+
+        # Marketplace — listings publics (sans filtre JWT)
+        - id: marketplace-service-public
+          uri: lb://MARKETPLACE-SERVICE
+          predicates:
+            - Path=/api/marketplace/listings/public/**
+
+        # Marketplace — routes protégées
+        - id: marketplace-service-secured
+          uri: lb://MARKETPLACE-SERVICE
+          predicates:
+            - Path=/api/marketplace/**
+          filters:
+            - AuthenticationFilter
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+application:
+  security:
+    jwt:
+      secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+
+gateway:
+  public-routes: /api/auth/login,/api/auth/register,/api/auth/refresh,/api/auth/health,/api/subscriptions/plans,/api/subscriptions/webhook,/api/geolocation/nearby,/api/geolocation/geocode,/api/notifications/health,/api/marketplace/listings/public/**,/actuator/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"

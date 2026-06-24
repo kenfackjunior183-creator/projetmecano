@@ -1,0 +1,13 @@
+target
+**/target
+.mvn
+.git
+.gitignore
+.idea
+.vscode
+*.log
+*.tmp
+*.swp
+.DS_Store
+node_modules
+**/*.class

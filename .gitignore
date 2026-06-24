@@ -1,0 +1,15 @@
+# IDE
+.continue/
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Java / Maven
+**/target/
+**/build/
+
+# System files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,2032 @@
+{
+  "info": {
+    "name": "Mecano API – Collection Complète",
+    "description": "Collection complète pour tester tous les microservices de l'application Mecano.\n\n**Architecture :**\n- API Gateway : http://localhost:8080\n- Auth Service : :8081\n- User Service : :8082\n- Geolocation Service : :8083\n- Subscription Service : :8084\n- Notification Service : :8085\n- Repair Service : :8086\n- Messaging Service : :8087\n\n**Flux d'inscription :**\n1. Auth – Register (tous les utilisateurs démarrent en USER)\n2. Auth – Login (récupère le JWT)\n3. User – Créer un utilisateur (récupère userId)\n4. Auth – Upgrade Role (USER → MECHANIC ou AUTOMOBILIST)\n5. Mechanic/Automobilist – Créer le profil métier\n6. Geolocation – Enregistrer la position\n7. Subscription – Voir les plans / Paiement\n8. Repair – Créer demande de dépannage\n9. Messaging – Publier événements RabbitMQ\n10. Notification – Gérer les avis (reviews)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "gateway",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "authUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "mechanicId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "automobilistId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "repairRequestId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth Service",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/auth/health",
+              "host": ["{{gateway}}"],
+              "path": ["api", "auth", "health"]
+            },
+            "description": "Vérifie que le service auth est opérationnel. Route publique (pas de JWT requis)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.text()).to.include('UP');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register – Utilisateur (rôle USER par défaut)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/auth/register",
+              "host": ["{{gateway}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Inscription. Tout le monde démarre avec USER.\n⚠️ Plus de champ 'role', mais 'name' obligatoire.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jean Dupont\",\n  \"email\": \"mechanic@mecano.com\",\n  \"password\": \"Password123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Inscription réussie (201)', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('accessToken présent', () => pm.expect(json.accessToken).to.be.a('string'));",
+                  "pm.test('refreshToken présent', () => pm.expect(json.refreshToken).to.be.a('string'));",
+                  "pm.test('role = USER', () => pm.expect(json.role).to.eql('USER'));",
+                  "pm.test('name = Jean Dupont', () => pm.expect(json.name).to.eql('Jean Dupont'));",
+                  "pm.test('userId présent', () => pm.expect(json.userId).to.be.a('string'));",
+                  "pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', json.refreshToken);",
+                  "pm.collectionVariables.set('authUserId', json.userId);",
+                  "console.log('authUserId sauvegardé :', json.userId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register – Email déjà utilisé (400 attendu)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/auth/register",
+              "host": ["{{gateway}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Doit retourner 400 car l'email est déjà pris.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jean Dupont\",\n  \"email\": \"mechanic@mecano.com\",\n  \"password\": \"Password123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('400 – Email déjà utilisé', () => pm.response.to.have.status(400));",
+                  "pm.test('Message erreur présent', () => pm.expect(pm.response.json().error).to.include('déjà'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register – Validation échouée (mot de passe court)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/auth/register",
+              "host": ["{{gateway}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Mot de passe < 8 caractères → 400.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test\",\n  \"email\": \"test@test.com\",\n  \"password\": \"123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('400 – Validation échouée', () => pm.response.to.have.status(400));",
+                  "pm.test('Erreur password présente', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.errors || json.error).to.exist;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/auth/login",
+              "host": ["{{gateway}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Connexion. Met à jour accessToken et refreshToken.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mechanic@mecano.com\",\n  \"password\": \"Password123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login réussi (200)', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('accessToken présent', () => pm.expect(json.accessToken).to.be.a('string'));",
+                  "pm.test('tokenType = Bearer', () => pm.expect(json.tokenType).to.eql('Bearer'));",
+                  "pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', json.refreshToken);",
+                  "pm.collectionVariables.set('authUserId', json.userId);",
+                  "console.log('Token sauvegardé :', json.accessToken.substring(0, 30) + '...');",
+                  "console.log('authUserId sauvegardé :', json.userId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login – Mauvais mot de passe (401 attendu)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/auth/login",
+              "host": ["{{gateway}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Doit retourner 401.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mechanic@mecano.com\",\n  \"password\": \"mauvaisPassword\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/auth/refresh",
+              "host": ["{{gateway}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Renouvelle l'access token.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Refresh réussi (200)', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Nouveau accessToken', () => pm.expect(json.accessToken).to.be.a('string'));",
+                  "pm.collectionVariables.set('accessToken', json.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upgrade Role – USER → MECHANIC",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{gateway}}/api/auth/upgrade-role",
+              "host": ["{{gateway}}"],
+              "path": ["api", "auth", "upgrade-role"]
+            },
+            "description": "Passe de USER à MECHANIC (ou AUTOMOBILIST, ADMIN).\n⚠️ userId = UUID retourné par le register (authUserId).",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{authUserId}}\",\n  \"newRole\": \"MECHANIC\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Upgrade réussi (200)', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('role = MECHANIC', () => pm.expect(json.role).to.eql('MECHANIC'));",
+                  "pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', json.refreshToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👤 User Service – Utilisateurs",
+      "description": "Profil de base avant upgrade.\n\nFlux : Register → Créer User → Upgrade Role → Créer profil métier.",
+      "item": [
+        {
+          "name": "Créer un utilisateur",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/users",
+              "host": ["{{gateway}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Crée un profil utilisateur de base.\n⚠️ authUserId = UUID retourné par le register.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authUserId\": \"{{authUserId}}\",\n  \"name\": \"Jean Dupont\",\n  \"email\": \"jean.dupont@mecano.com\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('User créé (201)', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('ID présent', () => pm.expect(json.id).to.be.a('string'));",
+                  "pm.test('name = Jean Dupont', () => pm.expect(json.name).to.eql('Jean Dupont'));",
+                  "pm.collectionVariables.set('userId', json.id);",
+                  "console.log('userId sauvegardé :', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lister tous les utilisateurs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/users",
+              "host": ["{{gateway}}"],
+              "path": ["api", "users"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau retourné', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtenir utilisateur par ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/users/{{userId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "users", "{{userId}}"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('ID correspond', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('userId')));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtenir utilisateur par authUserId",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/users/auth/{{authUserId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "users", "auth", "{{authUserId}}"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mettre à jour un utilisateur",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{gateway}}/api/users/{{userId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "users", "{{userId}}"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authUserId\": \"{{authUserId}}\",\n  \"name\": \"Jean-Pierre Dupont\",\n  \"email\": \"jean.dupont@mecano.com\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Nom mis à jour', () => pm.expect(pm.response.json().name).to.eql('Jean-Pierre Dupont'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Désactiver un utilisateur",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{gateway}}/api/users/{{userId}}/deactivate",
+              "host": ["{{gateway}}"],
+              "path": ["api", "users", "{{userId}}", "deactivate"]
+            },
+            "description": "Désactive sans suppression définitive.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Supprimer un utilisateur",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{gateway}}/api/users/{{userId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "users", "{{userId}}"]
+            },
+            "description": "⚠️ Suppression définitive.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔧 User Service – Mécaniciens",
+      "description": "Profil mécanicien (après upgrade USER → MECHANIC).\n⚠️ Nouveaux champs : userId (obligatoire), justificationDocument.",
+      "item": [
+        {
+          "name": "Créer un profil mécanicien",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics"]
+            },
+            "description": "⚠️ authUserId ET userId obligatoires.\n- justificationDocument : nouveau champ (justificatif pro)",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authUserId\": \"{{authUserId}}\",\n  \"userId\": \"{{userId}}\",\n  \"firstName\": \"Jean\",\n  \"lastName\": \"Dupont\",\n  \"email\": \"jean.dupont@mecano.com\",\n  \"phone\": \"+237690000001\",\n  \"garageName\": \"Garage Dupont\",\n  \"garageAddress\": \"123 Rue de la Mécanique, Bafoussam\",\n  \"specialities\": \"Freins, Moteur, Climatisation\",\n  \"justificationDocument\": \"/docs/justificatif-mecanique.pdf\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Mécanicien créé (201)', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('ID présent', () => pm.expect(json.id).to.be.a('string'));",
+                  "pm.test('subscriptionLevel = BASIC', () => pm.expect(json.subscriptionLevel).to.eql('BASIC'));",
+                  "pm.test('available = true', () => pm.expect(json.available).to.be.true);",
+                  "pm.collectionVariables.set('mechanicId', json.id);",
+                  "console.log('mechanicId :', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lister tous les mécaniciens",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mécaniciens disponibles",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics/available",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics", "available"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const arr = pm.response.json();",
+                  "pm.test('Tous disponibles', () => arr.forEach(m => pm.expect(m.available).to.be.true));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtenir mécanicien par ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics/{{mechanicId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics", "{{mechanicId}}"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('ID correspond', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('mechanicId')));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtenir mécanicien par authUserId",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics/auth/{{authUserId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics", "auth", "{{authUserId}}"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mettre à jour un mécanicien",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics/{{mechanicId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics", "{{mechanicId}}"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authUserId\": \"{{authUserId}}\",\n  \"userId\": \"{{userId}}\",\n  \"firstName\": \"Jean-Pierre\",\n  \"lastName\": \"Dupont\",\n  \"email\": \"jean.dupont@mecano.com\",\n  \"phone\": \"+237690000099\",\n  \"garageName\": \"Super Garage Dupont\",\n  \"garageAddress\": \"456 Avenue Mécanique, Bafoussam\",\n  \"specialities\": \"Freins, Moteur, Électrique\",\n  \"justificationDocument\": \"/docs/justificatif-mecanique.pdf\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Prénom mis à jour', () => pm.expect(pm.response.json().firstName).to.eql('Jean-Pierre'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Changer le niveau d'abonnement",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics/{{mechanicId}}/subscription?level=GOLD",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics", "{{mechanicId}}", "subscription"],
+              "query": [{ "key": "level", "value": "GOLD" }]
+            },
+            "description": "BASIC | SILVER | GOLD",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Level = GOLD', () => pm.expect(pm.response.json().subscriptionLevel).to.eql('GOLD'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Basculer disponibilité",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics/{{mechanicId}}/availability",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics", "{{mechanicId}}", "availability"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('available présent', () => pm.expect(pm.response.json().available).to.be.a('boolean'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Supprimer un mécanicien",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics/{{mechanicId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics", "{{mechanicId}}"]
+            },
+            "description": "⚠️ Suppression définitive.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🚗 User Service – Automobilistes",
+      "description": "Profil automobiliste (après upgrade USER → AUTOMOBILIST).\n⚠️ Nouveaux champs : userId (obligatoire), drivingLicenseDocument.",
+      "item": [
+        {
+          "name": "Créer un profil automobiliste",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/automobilists",
+              "host": ["{{gateway}}"],
+              "path": ["api", "automobilists"]
+            },
+            "description": "⚠️ authUserId ET userId obligatoires.\n- drivingLicenseDocument : nouveau champ (permis de conduire)",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authUserId\": \"{{authUserId}}\",\n  \"userId\": \"{{userId}}\",\n  \"firstName\": \"Marie\",\n  \"lastName\": \"Martin\",\n  \"email\": \"marie.martin@mecano.com\",\n  \"phone\": \"+237691000001\",\n  \"vehicleBrand\": \"Toyota\",\n  \"vehicleModel\": \"Corolla\",\n  \"vehiclePlate\": \"LT-1234-A\",\n  \"drivingLicenseDocument\": \"/docs/permis-conduire.pdf\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('ID présent', () => pm.expect(json.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('automobilistId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lister tous les automobilistes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/automobilists",
+              "host": ["{{gateway}}"],
+              "path": ["api", "automobilists"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtenir automobiliste par ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/automobilists/{{automobilistId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "automobilists", "{{automobilistId}}"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtenir automobiliste par authUserId",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/automobilists/auth/{{authUserId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "automobilists", "auth", "{{authUserId}}"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mettre à jour un automobiliste",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{gateway}}/api/automobilists/{{automobilistId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "automobilists", "{{automobilistId}}"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authUserId\": \"{{authUserId}}\",\n  \"userId\": \"{{userId}}\",\n  \"firstName\": \"Marie-Claire\",\n  \"lastName\": \"Martin\",\n  \"email\": \"marie.martin@mecano.com\",\n  \"phone\": \"+237691000099\",\n  \"vehicleBrand\": \"Honda\",\n  \"vehicleModel\": \"Civic\",\n  \"vehiclePlate\": \"LT-5678-B\",\n  \"drivingLicenseDocument\": \"/docs/permis-conduire.pdf\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Prénom mis à jour', () => pm.expect(pm.response.json().firstName).to.eql('Marie-Claire'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Supprimer un automobiliste",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{gateway}}/api/automobilists/{{automobilistId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "automobilists", "{{automobilistId}}"]
+            },
+            "description": "⚠️ Suppression définitive.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📍 Geolocation Service",
+      "description": "Géolocalisation des mécaniciens : enregistrement position, recherche nearby, géocodage.\n⚠️ La gestion des pannes a été déplacée vers le Repair Service.",
+      "item": [
+        {
+          "name": "Enregistrer position mécanicien",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/geolocation/location",
+              "host": ["{{gateway}}"],
+              "path": ["api", "geolocation", "location"]
+            },
+            "description": "⚠️ latitude et longitude sont optionnels (plus de @NotNull).",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mechanicId\": \"{{mechanicId}}\",\n  \"latitude\": 5.4768,\n  \"longitude\": 10.4191,\n  \"address\": \"Rue de la Mécanique, Bafoussam\",\n  \"city\": \"Bafoussam\",\n  \"interventionRadiusKm\": 20.0,\n  \"subscriptionLevel\": \"GOLD\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Coordonnées enregistrées', () => { pm.expect(json.latitude).to.be.a('number'); pm.expect(json.longitude).to.be.a('number'); });",
+                  "pm.test('Active = true', () => pm.expect(json.active).to.be.true);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enregistrer position par adresse (géocodage)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/geolocation/location",
+              "host": ["{{gateway}}"],
+              "path": ["api", "geolocation", "location"]
+            },
+            "description": "✅ latitude/longitude optionnels. Géocodage auto via Nominatim.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mechanicId\": \"{{mechanicId}}\",\n  \"address\": \"Yaoundé, Cameroun\",\n  \"city\": \"Yaoundé\",\n  \"interventionRadiusKm\": 15.0,\n  \"subscriptionLevel\": \"SILVER\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK – géocodage réussi', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Coordonnées géocodées', () => { pm.expect(json.latitude).to.be.a('number'); pm.expect(json.longitude).to.be.a('number'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Géocodage direct (route publique)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/geolocation/geocode?address=Yaoundé,+Cameroun",
+              "host": ["{{gateway}}"],
+              "path": ["api", "geolocation", "geocode"],
+              "query": [{ "key": "address", "value": "Yaoundé, Cameroun" }]
+            },
+            "description": "Géocode une adresse → GPS. Route PUBLIQUE."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('latitude présente', () => pm.expect(json.latitude).to.be.a('number'));",
+                  "pm.test('longitude présente', () => pm.expect(json.longitude).to.be.a('number'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mettre à jour niveau d'abonnement (géo)",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{gateway}}/api/geolocation/location/{{mechanicId}}/subscription?level=GOLD",
+              "host": ["{{gateway}}"],
+              "path": ["api", "geolocation", "location", "{{mechanicId}}", "subscription"],
+              "query": [{ "key": "level", "value": "GOLD" }]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Level = GOLD', () => pm.expect(pm.response.json().subscriptionLevel).to.eql('GOLD'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Trouver mécaniciens proches (route publique)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/geolocation/nearby",
+              "host": ["{{gateway}}"],
+              "path": ["api", "geolocation", "nearby"]
+            },
+            "description": "Route PUBLIQUE – pas de JWT.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 5.4768,\n  \"longitude\": 10.4191,\n  \"radiusKm\": 25.0\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "const arr = pm.response.json();",
+                  "if (arr.length > 0) { pm.test('distanceKm présente', () => pm.expect(arr[0].distanceKm).to.be.a('number')); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔧 Repair Service",
+      "description": "Gestion des pannes et demandes de dépannage.\n🆕 Nouveau microservice séparé de la géolocalisation (port :8086).",
+      "item": [
+        {
+          "name": "Créer une demande de dépannage",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/repairs/requests?automobilistId={{automobilistId}}&latitude=5.4768&longitude=10.4191&description=Pneu+crevé",
+              "host": ["{{gateway}}"],
+              "path": ["api", "repairs", "requests"],
+              "query": [
+                { "key": "automobilistId", "value": "{{automobilistId}}" },
+                { "key": "latitude", "value": "5.4768" },
+                { "key": "longitude", "value": "10.4191" },
+                { "key": "description", "value": "Pneu crevé sur la route nationale" }
+              ]
+            },
+            "description": "Status initial : PENDING.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status = PENDING', () => pm.expect(json.status).to.eql('PENDING'));",
+                  "pm.collectionVariables.set('repairRequestId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assigner un mécanicien",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{gateway}}/api/repairs/requests/{{repairRequestId}}/assign?mechanicId={{mechanicId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "repairs", "requests", "{{repairRequestId}}", "assign"],
+              "query": [{ "key": "mechanicId", "value": "{{mechanicId}}" }]
+            },
+            "description": "Status → ACCEPTED.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = ACCEPTED', () => pm.expect(pm.response.json().status).to.eql('ACCEPTED'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mettre à jour le statut → IN_PROGRESS",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{gateway}}/api/repairs/requests/{{repairRequestId}}/status?status=IN_PROGRESS",
+              "host": ["{{gateway}}"],
+              "path": ["api", "repairs", "requests", "{{repairRequestId}}", "status"],
+              "query": [{ "key": "status", "value": "IN_PROGRESS" }]
+            },
+            "description": "PENDING | ACCEPTED | IN_PROGRESS | COMPLETED | CANCELLED",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = IN_PROGRESS', () => pm.expect(pm.response.json().status).to.eql('IN_PROGRESS'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Terminer la demande → COMPLETED",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{gateway}}/api/repairs/requests/{{repairRequestId}}/status?status=COMPLETED",
+              "host": ["{{gateway}}"],
+              "path": ["api", "repairs", "requests", "{{repairRequestId}}", "status"],
+              "query": [{ "key": "status", "value": "COMPLETED" }]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = COMPLETED', () => pm.expect(pm.response.json().status).to.eql('COMPLETED'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Demandes par automobiliste",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/repairs/requests/automobilist/{{automobilistId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "repairs", "requests", "automobilist", "{{automobilistId}}"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Demandes par mécanicien",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/repairs/requests/mechanic/{{mechanicId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "repairs", "requests", "mechanic", "{{mechanicId}}"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Demandes par statut",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/repairs/requests/status/PENDING",
+              "host": ["{{gateway}}"],
+              "path": ["api", "repairs", "requests", "status", "PENDING"]
+            },
+            "description": "Filtrer par statut : PENDING, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Publier event RepairRequested (RabbitMQ)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/repairs/publish/repair-requested",
+              "host": ["{{gateway}}"],
+              "path": ["api", "repairs", "publish", "repair-requested"]
+            },
+            "description": "Publie un événement de demande de dépannage vers RabbitMQ.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"automobilistEmail\": \"auto@mecano.com\",\n  \"automobilistFirstName\": \"Marie\",\n  \"mechanicEmail\": \"mechanic@mecano.com\",\n  \"mechanicFirstName\": \"Jean\",\n  \"description\": \"Pneu crevé sur la route nationale\",\n  \"latitude\": 5.4768,\n  \"longitude\": 10.4191\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📨 Messaging Service",
+      "description": "Service de messagerie – Publication d'événements RabbitMQ.\n🆕 Nouveau microservice extrait du Notification Service (port :8087).",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/messaging/health",
+              "host": ["{{gateway}}"],
+              "path": ["api", "messaging", "health"]
+            },
+            "description": "Vérifie que le messaging service est opérationnel.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Service UP', () => pm.expect(pm.response.text()).to.include('UP'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Publier event UserRegistered",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/messaging/publish/user-registered",
+              "host": ["{{gateway}}"],
+              "path": ["api", "messaging", "publish", "user-registered"]
+            },
+            "description": "→ queue.user.registered → email bienvenue.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mechanic@mecano.com\",\n  \"firstName\": \"Jean\",\n  \"role\": \"MECHANIC\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Event publié', () => pm.expect(pm.response.text()).to.include('publié'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Publier event PaymentConfirmed",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/messaging/publish/payment-confirmed",
+              "host": ["{{gateway}}"],
+              "path": ["api", "messaging", "publish", "payment-confirmed"]
+            },
+            "description": "→ queue.payment.confirmed → confirmation de paiement.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mechanic@mecano.com\",\n  \"firstName\": \"Jean\",\n  \"planLevel\": \"GOLD\",\n  \"amount\": \"29.99\",\n  \"currency\": \"EUR\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Publier event RepairRequested",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/messaging/publish/repair-requested",
+              "host": ["{{gateway}}"],
+              "path": ["api", "messaging", "publish", "repair-requested"]
+            },
+            "description": "→ queue.repair.requested → notification demande de dépannage.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"automobilistEmail\": \"auto@mecano.com\",\n  \"automobilistFirstName\": \"Marie\",\n  \"mechanicEmail\": \"mechanic@mecano.com\",\n  \"mechanicFirstName\": \"Jean\",\n  \"description\": \"Pneu crevé sur la route nationale\",\n  \"latitude\": 5.4768,\n  \"longitude\": 10.4191\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Publier event SubscriptionExpired",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/messaging/publish/subscription-expired",
+              "host": ["{{gateway}}"],
+              "path": ["api", "messaging", "publish", "subscription-expired"]
+            },
+            "description": "→ queue.subscription.expired → notification abonnement expiré.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mechanic@mecano.com\",\n  \"firstName\": \"Jean\",\n  \"planLevel\": \"GOLD\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "💳 Subscription Service",
+      "item": [
+        {
+          "name": "Lister les plans (route publique)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/subscriptions/plans",
+              "host": ["{{gateway}}"],
+              "path": ["api", "subscriptions", "plans"]
+            },
+            "description": "BASIC, SILVER, GOLD."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Créer une session de paiement Stripe",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/subscriptions/checkout?mechanicId={{mechanicId}}&planLevel=GOLD",
+              "host": ["{{gateway}}"],
+              "path": ["api", "subscriptions", "checkout"],
+              "query": [
+                { "key": "mechanicId", "value": "{{mechanicId}}" },
+                { "key": "planLevel", "value": "GOLD" }
+              ]
+            },
+            "description": "⚠️ Requiert clé Stripe configurée.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('checkoutUrl présente', () => pm.expect(pm.response.json().checkoutUrl).to.be.a('string'));",
+                  "} else {",
+                  "    console.log('Stripe non configuré (normal en dev) – code:', pm.response.code);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Webhook Stripe (route publique)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/subscriptions/webhook",
+              "host": ["{{gateway}}"],
+              "path": ["api", "subscriptions", "webhook"]
+            },
+            "description": "Reçoit événements Stripe.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Stripe-Signature", "value": "t=123,v1=test_signature" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"metadata\": {\n        \"mechanicId\": \"{{mechanicId}}\",\n        \"planLevel\": \"GOLD\"\n      }\n    }\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Abonnement actif",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/subscriptions/active?mechanicId={{mechanicId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "subscriptions", "active"],
+              "query": [{ "key": "mechanicId", "value": "{{mechanicId}}" }]
+            },
+            "description": "400 si aucun abonnement.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ou 400', () => pm.expect([200, 400]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Historique des abonnements",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/subscriptions/history?mechanicId={{mechanicId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "subscriptions", "history"],
+              "query": [{ "key": "mechanicId", "value": "{{mechanicId}}" }]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Annuler un abonnement",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{gateway}}/api/subscriptions/cancel?mechanicId={{mechanicId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "subscriptions", "cancel"],
+              "query": [{ "key": "mechanicId", "value": "{{mechanicId}}" }]
+            },
+            "description": "Requiert abonnement actif.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ou 400', () => pm.expect([200, 400]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔔 Notification Service",
+      "description": "Envoi d'emails et gestion des avis (reviews).\n⚠️ Les endpoints de publication RabbitMQ ont été déplacés vers le Messaging Service.\n🆕 Gestion des avis ajoutée (note, commentaire par dépannage).",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/notifications/health",
+              "host": ["{{gateway}}"],
+              "path": ["api", "notifications", "health"]
+            },
+            "description": "Route publique (pas de JWT requis).",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Service UP', () => pm.expect(pm.response.text()).to.include('UP'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Envoi email direct (sans RabbitMQ)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/notifications/send/direct",
+              "host": ["{{gateway}}"],
+              "path": ["api", "notifications", "send", "direct"]
+            },
+            "description": "Teste la config SMTP.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@mecano.com\",\n  \"firstName\": \"Test\",\n  \"role\": \"MECHANIC\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Créer un avis / review",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/notifications/reviews",
+              "host": ["{{gateway}}"],
+              "path": ["api", "notifications", "reviews"]
+            },
+            "description": "🆕 Crée un avis après un dépannage terminé.\nNote de 1 à 5.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repairRequestId\": \"{{repairRequestId}}\",\n  \"automobilistId\": \"{{automobilistId}}\",\n  \"mechanicId\": \"{{mechanicId}}\",\n  \"rating\": 5,\n  \"comment\": \"Excellent service, rapide et efficace !\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('ID présent', () => pm.expect(json.id).to.be.a('string'));",
+                  "pm.test('rating = 5', () => pm.expect(json.rating).to.eql(5));",
+                  "pm.test('CreatedAt présent', () => pm.expect(json.createdAt).to.be.a('string'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Avis par mécanicien",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/notifications/reviews/mechanic/{{mechanicId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "notifications", "reviews", "mechanic", "{{mechanicId}}"]
+            },
+            "description": "🆕 Liste tous les avis pour un mécanicien donné.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Avis par automobiliste",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/notifications/reviews/automobilist/{{automobilistId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "notifications", "reviews", "automobilist", "{{automobilistId}}"]
+            },
+            "description": "🆕 Liste tous les avis émis par un automobiliste.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Avis par demande de dépannage",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/notifications/reviews/repair/{{repairRequestId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "notifications", "reviews", "repair", "{{repairRequestId}}"]
+            },
+            "description": "🆕 Récupère l'avis lié à une demande de dépannage spécifique.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔒 Tests de Sécurité",
+      "item": [
+        {
+          "name": "Accès sans token → 401 attendu",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token invalide → 401 attendu",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/mechanics",
+              "host": ["{{gateway}}"],
+              "path": ["api", "mechanics"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer token.invalide.ici" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Route publique nearby sans token → 200",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/geolocation/nearby",
+              "host": ["{{gateway}}"],
+              "path": ["api", "geolocation", "nearby"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 5.4768,\n  \"longitude\": 10.4191,\n  \"radiusKm\": 10.0\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Route publique geocode sans token → 200",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/geolocation/geocode?address=Douala",
+              "host": ["{{gateway}}"],
+              "path": ["api", "geolocation", "geocode"],
+              "query": [{ "key": "address", "value": "Douala" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Route publique plans sans token → 200",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/subscriptions/plans",
+              "host": ["{{gateway}}"],
+              "path": ["api", "subscriptions", "plans"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accès Repair sans token → 401",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/repairs/requests/status/PENDING",
+              "host": ["{{gateway}}"],
+              "path": ["api", "repairs", "requests", "status", "PENDING"]
+            },
+            "description": "🆕 Test sécurité pour le nouveau Repair Service."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accès Messaging sans token → 401",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/messaging/health",
+              "host": ["{{gateway}}"],
+              "path": ["api", "messaging", "health"]
+            },
+            "description": "🆕 Test sécurité pour le nouveau Messaging Service."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
