@@ -51,3 +51,5 @@ public class AutomobilistController {
         return ResponseEntity.noContent().build();
     }
 }
+
+
