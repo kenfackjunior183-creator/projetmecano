@@ -6,8 +6,10 @@ import com.mecano.auth_service.entity.Role;
 import com.mecano.auth_service.entity.UserCredential;
 import com.mecano.auth_service.repository.RefreshTokenRepository;
 import com.mecano.auth_service.repository.UserCredentialRepository;
-import com.mecano.auth_service.service.JwtService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,6 +21,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserCredentialRepository userRepo;
@@ -26,6 +29,39 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+
+    // ── Super Admin configuration ────────────────────────────────
+    @Value("${app.admin.email:admin@mecano.com}")
+    private String adminEmail;
+
+    @Value("${app.admin.password:Admin123!}")
+    private String adminPassword;
+
+    @Value("${app.admin.name:Super Admin}")
+    private String adminName;
+
+    /**
+     * Creates the super admin user at application startup if it doesn't exist.
+     * This ensures there is always an ADMIN user to manage the platform.
+     */
+    @PostConstruct
+    @Transactional
+    public void createSuperAdminIfNotExists() {
+        if (!userRepo.existsByEmail(adminEmail)) {
+            UserCredential admin = UserCredential.builder()
+                    .name(adminName)
+                    .email(adminEmail)
+                    .password(passwordEncoder.encode(adminPassword))
+                    .role(Role.ADMIN)
+                    .isActive(true)
+                    .build();
+
+            userRepo.save(admin);
+            log.info("✅ Super admin created successfully – email: {}, role: ADMIN", adminEmail);
+        } else {
+            log.debug("ℹ️ Super admin already exists – email: {}", adminEmail);
+        }
+    }
 
     // ── Inscription ─────────────────────────────────────────────
     @Transactional
@@ -75,6 +111,8 @@ public class AuthService {
             user.setRole(Role.AUTOMOBILIST);
         } else if (user.getRole() == Role.USER && newRole == Role.MECHANIC) {
             user.setRole(Role.MECHANIC);
+        } else if (user.getRole() == Role.USER && newRole == Role.ADMIN) {
+            user.setRole(Role.ADMIN);
         } else {
             throw new RuntimeException("Changement de rôle non autorisé");
         }

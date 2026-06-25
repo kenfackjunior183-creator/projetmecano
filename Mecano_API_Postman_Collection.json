@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Mecano API – Collection Complète",
-    "description": "Collection complète pour tester tous les microservices de l'application Mecano.\n\n**Architecture :**\n- API Gateway : http://localhost:8080\n- Auth Service : :8081\n- User Service : :8082\n- Geolocation Service : :8083\n- Subscription Service : :8084\n- Notification Service : :8085\n- Repair Service : :8086\n- Messaging Service : :8087\n\n**Flux d'inscription :**\n1. Auth – Register (tous les utilisateurs démarrent en USER)\n2. Auth – Login (récupère le JWT)\n3. User – Créer un utilisateur (récupère userId)\n4. Auth – Upgrade Role (USER → MECHANIC ou AUTOMOBILIST)\n5. Mechanic/Automobilist – Créer le profil métier\n6. Geolocation – Enregistrer la position\n7. Subscription – Voir les plans / Paiement\n8. Repair – Créer demande de dépannage\n9. Messaging – Publier événements RabbitMQ\n10. Notification – Gérer les avis (reviews)",
+    "description": "Collection complète pour tester tous les microservices de l'application Mecano.\n\n**Architecture :**\n- API Gateway : http://localhost:8080\n- Auth Service : :8081\n- User Service : :8082\n- Geolocation Service : :8083\n- Subscription Service : :8084\n- Notification Service : :8085\n- Repair Service : :8086\n- Messaging Service : :8087\n- Admin Service : :8088\n- Marketplace Service : :8089\n\n**Flux d'inscription :**\n1. Auth – Register (tous les utilisateurs démarrent en USER)\n2. Auth – Login (récupère le JWT)\n3. User – Créer un utilisateur (récupère userId)\n4. Auth – Upgrade Role (USER → MECHANIC ou AUTOMOBILIST)\n5. Mechanic/Automobilist – Créer le profil métier\n6. Geolocation – Enregistrer la position\n7. Subscription – Voir les plans / Paiement\n8. Repair – Créer demande de dépannage\n9. Messaging – Publier événements RabbitMQ\n10. Notification – Gérer les avis (reviews)\n11. Marketplace – Gérer les annonces et offres\n12. Admin – Dashboard, logs et métriques",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -44,6 +44,16 @@
       "key": "repairRequestId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "listingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "offerId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -83,7 +93,7 @@
               "host": ["{{gateway}}"],
               "path": ["api", "auth", "register"]
             },
-            "description": "Inscription. Tout le monde démarre avec USER.\n⚠️ Plus de champ 'role', mais 'name' obligatoire.",
+            "description": "Inscription. Tout le monde démarre avec USER.\nChamps obligatoires : name, email, password.",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
@@ -289,7 +299,7 @@
               "host": ["{{gateway}}"],
               "path": ["api", "auth", "upgrade-role"]
             },
-            "description": "Passe de USER à MECHANIC (ou AUTOMOBILIST, ADMIN).\n⚠️ userId = UUID retourné par le register (authUserId).",
+            "description": "Passe de USER à MECHANIC (ou AUTOMOBILIST, ADMIN).\n⚠️ userId = UUID retourné par le register (authUserId). newRole = MECHANIC | AUTOMOBILIST | ADMIN",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
@@ -521,7 +531,7 @@
     },
     {
       "name": "🔧 User Service – Mécaniciens",
-      "description": "Profil mécanicien (après upgrade USER → MECHANIC).\n⚠️ Nouveaux champs : userId (obligatoire), justificationDocument.",
+      "description": "Profil mécanicien (après upgrade USER → MECHANIC).\n⚠️ Champs obligatoires : authUserId, userId, firstName, lastName, email.",
       "item": [
         {
           "name": "Créer un profil mécanicien",
@@ -705,7 +715,7 @@
               "path": ["api", "mechanics", "{{mechanicId}}", "subscription"],
               "query": [{ "key": "level", "value": "GOLD" }]
             },
-            "description": "BASIC | SILVER | GOLD",
+            "description": "Niveaux : BASIC | SILVER | GOLD",
             "header": [
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
             ]
@@ -779,7 +789,7 @@
     },
     {
       "name": "🚗 User Service – Automobilistes",
-      "description": "Profil automobiliste (après upgrade USER → AUTOMOBILIST).\n⚠️ Nouveaux champs : userId (obligatoire), drivingLicenseDocument.",
+      "description": "Profil automobiliste (après upgrade USER → AUTOMOBILIST).\n⚠️ Champs obligatoires : authUserId, userId, firstName, lastName, email.",
       "item": [
         {
           "name": "Créer un profil automobiliste",
@@ -790,7 +800,7 @@
               "host": ["{{gateway}}"],
               "path": ["api", "automobilists"]
             },
-            "description": "⚠️ authUserId ET userId obligatoires.\n- drivingLicenseDocument : nouveau champ (permis de conduire)",
+            "description": "⚠️ authUserId ET userId obligatoires.\n- drivingLicenseDocument : permis de conduire",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
@@ -952,10 +962,10 @@
     },
     {
       "name": "📍 Geolocation Service",
-      "description": "Géolocalisation des mécaniciens : enregistrement position, recherche nearby, géocodage.\n⚠️ La gestion des pannes a été déplacée vers le Repair Service.",
+      "description": "Géolocalisation des mécaniciens : enregistrement position, recherche nearby.\n⚠️ La gestion des pannes a été déplacée vers le Repair Service.\n⚠️ Le géocodage direct (route publique) n'est pas exposé – il est effectué automatiquement à l'enregistrement de la position.",
       "item": [
         {
-          "name": "Enregistrer position mécanicien",
+          "name": "Enregistrer position mécanicien (coordonnées GPS)",
           "request": {
             "method": "POST",
             "url": {
@@ -963,7 +973,7 @@
               "host": ["{{gateway}}"],
               "path": ["api", "geolocation", "location"]
             },
-            "description": "⚠️ latitude et longitude sont optionnels (plus de @NotNull).",
+            "description": "✅ latitude/longitude optionnels si address fournie (géocodage auto via Nominatim).",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
@@ -989,7 +999,7 @@
           ]
         },
         {
-          "name": "Enregistrer position par adresse (géocodage)",
+          "name": "Enregistrer position par adresse (géocodage auto)",
           "request": {
             "method": "POST",
             "url": {
@@ -1015,33 +1025,6 @@
                   "pm.test('200 OK – géocodage réussi', () => pm.response.to.have.status(200));",
                   "const json = pm.response.json();",
                   "pm.test('Coordonnées géocodées', () => { pm.expect(json.latitude).to.be.a('number'); pm.expect(json.longitude).to.be.a('number'); });"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
-        },
-        {
-          "name": "Géocodage direct (route publique)",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{gateway}}/api/geolocation/geocode?address=Yaoundé,+Cameroun",
-              "host": ["{{gateway}}"],
-              "path": ["api", "geolocation", "geocode"],
-              "query": [{ "key": "address", "value": "Yaoundé, Cameroun" }]
-            },
-            "description": "Géocode une adresse → GPS. Route PUBLIQUE."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
-                  "const json = pm.response.json();",
-                  "pm.test('latitude présente', () => pm.expect(json.latitude).to.be.a('number'));",
-                  "pm.test('longitude présente', () => pm.expect(json.longitude).to.be.a('number'));"
                 ],
                 "type": "text/javascript"
               }
@@ -1084,7 +1067,7 @@
               "host": ["{{gateway}}"],
               "path": ["api", "geolocation", "nearby"]
             },
-            "description": "Route PUBLIQUE – pas de JWT.",
+            "description": "Route PUBLIQUE – pas de JWT requis.\nChamps obligatoires : latitude, longitude. radiusKm optionnel (défaut 10).",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
@@ -1119,7 +1102,7 @@
           "request": {
             "method": "POST",
             "url": {
-              "raw": "{{gateway}}/api/repairs/requests?automobilistId={{automobilistId}}&latitude=5.4768&longitude=10.4191&description=Pneu+crevé",
+              "raw": "{{gateway}}/api/repairs/requests?automobilistId={{automobilistId}}&latitude=5.4768&longitude=10.4191&description=Pneu+crevé+sur+la+route+nationale",
               "host": ["{{gateway}}"],
               "path": ["api", "repairs", "requests"],
               "query": [
@@ -1129,7 +1112,7 @@
                 { "key": "description", "value": "Pneu crevé sur la route nationale" }
               ]
             },
-            "description": "Status initial : PENDING.",
+            "description": "Status initial : PENDING.\nParamètres requis : automobilistId, latitude, longitude, description.",
             "header": [
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
             ]
@@ -1187,7 +1170,7 @@
               "path": ["api", "repairs", "requests", "{{repairRequestId}}", "status"],
               "query": [{ "key": "status", "value": "IN_PROGRESS" }]
             },
-            "description": "PENDING | ACCEPTED | IN_PROGRESS | COMPLETED | CANCELLED",
+            "description": "Status possibles : PENDING | ACCEPTED | IN_PROGRESS | COMPLETED | CANCELLED",
             "header": [
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
             ]
@@ -1604,7 +1587,7 @@
               "path": ["api", "subscriptions", "active"],
               "query": [{ "key": "mechanicId", "value": "{{mechanicId}}" }]
             },
-            "description": "400 si aucun abonnement.",
+            "description": "Retourne 400 si aucun abonnement actif.",
             "header": [
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
             ]
@@ -1679,7 +1662,7 @@
     },
     {
       "name": "🔔 Notification Service",
-      "description": "Envoi d'emails et gestion des avis (reviews).\n⚠️ Les endpoints de publication RabbitMQ ont été déplacés vers le Messaging Service.\n🆕 Gestion des avis ajoutée (note, commentaire par dépannage).",
+      "description": "Envoi d'emails et gestion des avis (reviews).\n⚠️ Les endpoints de publication RabbitMQ ont été déplacés vers le Messaging Service.",
       "item": [
         {
           "name": "Health Check",
@@ -1748,7 +1731,7 @@
               "host": ["{{gateway}}"],
               "path": ["api", "notifications", "reviews"]
             },
-            "description": "🆕 Crée un avis après un dépannage terminé.\nNote de 1 à 5.",
+            "description": "Crée un avis après un dépannage terminé.\nNote de 1 à 5.",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
@@ -1783,7 +1766,6 @@
               "host": ["{{gateway}}"],
               "path": ["api", "notifications", "reviews", "mechanic", "{{mechanicId}}"]
             },
-            "description": "🆕 Liste tous les avis pour un mécanicien donné.",
             "header": [
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
             ]
@@ -1810,7 +1792,6 @@
               "host": ["{{gateway}}"],
               "path": ["api", "notifications", "reviews", "automobilist", "{{automobilistId}}"]
             },
-            "description": "🆕 Liste tous les avis émis par un automobiliste.",
             "header": [
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
             ]
@@ -1837,7 +1818,6 @@
               "host": ["{{gateway}}"],
               "path": ["api", "notifications", "reviews", "repair", "{{repairRequestId}}"]
             },
-            "description": "🆕 Récupère l'avis lié à une demande de dépannage spécifique.",
             "header": [
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
             ]
@@ -1848,6 +1828,569 @@
               "script": {
                 "exec": [
                   "pm.test('200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🛍️ Marketplace Service",
+      "description": "Place de marché pour pièces détachées : annonces, recherche, offres.\n🆕 Nouveau microservice (port :8089).",
+      "item": [
+        {
+          "name": "Annonces publiques – Liste",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/listings/public",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "listings", "public"]
+            },
+            "description": "Liste toutes les annonces actives. Route PUBLIQUE."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rechercher annonces (route publique)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/listings/public/search?keyword=frein&category=pi%C3%A8ces&brand=Toyota&minPrice=10&maxPrice=500&condition=neuf&location=Yaound%C3%A9",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "listings", "public", "search"],
+              "query": [
+                { "key": "keyword", "value": "frein" },
+                { "key": "category", "value": "pièces" },
+                { "key": "brand", "value": "Toyota" },
+                { "key": "minPrice", "value": "10" },
+                { "key": "maxPrice", "value": "500" },
+                { "key": "condition", "value": "neuf" },
+                { "key": "location", "value": "Yaoundé" }
+              ]
+            },
+            "description": "Recherche multi-critères. Route PUBLIQUE.\nParamètres optionnels : keyword, category, brand, minPrice, maxPrice, location, condition."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Détail d'une annonce publique",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/listings/public/{{listingId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "listings", "public", "{{listingId}}"]
+            },
+            "description": "Détail d'une annonce par ID. Route PUBLIQUE."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('ID correspond', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('listingId')));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Créer une annonce",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/listings",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "listings"]
+            },
+            "description": "Crée une annonce de pièce détachée.\nChamps obligatoires : title, description, category, brand, price, location.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Plaquettes de frein avant Toyota Corolla\",\n  \"description\": \"Plaquettes de frein neuves, compatibles Toyota Corolla 2020-2023\",\n  \"category\": \"pièces\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla 2020-2023\",\n  \"price\": 45.99,\n  \"quantity\": 1,\n  \"condition\": \"neuf\",\n  \"negotiable\": true,\n  \"imageUrl\": \"/images/plaquettes-frein.jpg\",\n  \"location\": \"Yaoundé, Cameroun\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('ID présent', () => pm.expect(json.id).to.be.a('string'));",
+                  "pm.test('status = ACTIVE', () => pm.expect(json.status).to.eql('ACTIVE'));",
+                  "pm.collectionVariables.set('listingId', json.id);",
+                  "console.log('listingId sauvegardé :', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mes annonces",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/listings/me",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "listings", "me"]
+            },
+            "description": "Liste les annonces de l'utilisateur connecté.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mettre à jour une annonce",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/listings/{{listingId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "listings", "{{listingId}}"]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Plaquettes de frein avant Toyota Corolla – Prix réduit\",\n  \"description\": \"Plaquettes de frein neuves, compatibles Toyota Corolla 2020-2023. Prix promotionnel !\",\n  \"category\": \"pièces\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla 2020-2023\",\n  \"price\": 35.99,\n  \"quantity\": 1,\n  \"condition\": \"neuf\",\n  \"negotiable\": true,\n  \"imageUrl\": \"/images/plaquettes-frein.jpg\",\n  \"location\": \"Yaoundé, Cameroun\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Prix mis à jour', () => pm.expect(pm.response.json().price).to.eql(35.99));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Marquer comme vendu",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/listings/{{listingId}}/sold",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "listings", "{{listingId}}", "sold"]
+            },
+            "description": "Marque l'annonce comme vendue (status → SOLD).",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = SOLD', () => pm.expect(pm.response.json().status).to.eql('SOLD'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Faire une offre",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/offers",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "offers"]
+            },
+            "description": "Faire une offre sur une annonce.\nChamps obligatoires : listingId, offeredPrice. message optionnel.",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listingId\": \"{{listingId}}\",\n  \"offeredPrice\": 30.00,\n  \"message\": \"Bonjour, je suis intéressé par ce produit. Pouvez-vous descendre à 30€ ?\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('ID présent', () => pm.expect(json.id).to.be.a('string'));",
+                  "pm.test('status = PENDING', () => pm.expect(json.status).to.eql('PENDING'));",
+                  "pm.collectionVariables.set('offerId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mes offres",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/offers/me",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "offers", "me"]
+            },
+            "description": "Liste les offres de l'utilisateur connecté.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Offres sur mon annonce",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/offers/listing/{{listingId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "offers", "listing", "{{listingId}}"]
+            },
+            "description": "Liste les offres reçues pour une annonce (propriétaire uniquement).",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Répondre à une offre",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/offers/{{offerId}}/respond?status=ACCEPTED",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "offers", "{{offerId}}", "respond"],
+              "query": [{ "key": "status", "value": "ACCEPTED" }]
+            },
+            "description": "Accepter ou refuser une offre : ACCEPTED / REJECTED",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status = ACCEPTED', () => pm.expect(pm.response.json().status).to.eql('ACCEPTED'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Supprimer une annonce",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/listings/{{listingId}}",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "listings", "{{listingId}}"]
+            },
+            "description": "⚠️ Suppression définitive (propriétaire uniquement).",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🛡️ Admin Service",
+      "description": "Dashboard admin, logs d'actions et métriques système.\n🆕 Nouveau microservice (port :8088).\nRequiert rôle ADMIN.",
+      "item": [
+        {
+          "name": "Dashboard – Statistiques",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/admin/dashboard",
+              "host": ["{{gateway}}"],
+              "path": ["api", "admin", "dashboard"]
+            },
+            "description": "Statistiques générales de la plateforme. Requiert ADMIN.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Statistiques présentes', () => {",
+                  "    pm.expect(json.totalUsers !== undefined || json.totalMechanics !== undefined).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logs d'actions – Tous",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/admin/logs",
+              "host": ["{{gateway}}"],
+              "path": ["api", "admin", "logs"]
+            },
+            "description": "Liste tous les logs d'actions administrateurs.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logs d'actions – Mes actions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/admin/logs/me",
+              "host": ["{{gateway}}"],
+              "path": ["api", "admin", "logs", "me"]
+            },
+            "description": "Liste les logs d'actions de l'admin connecté.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Créer un log d'action",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/admin/logs?action=DELETE_USER&description=Suppression+utilisateur+inactif&targetEntity=USER&targetId=123",
+              "host": ["{{gateway}}"],
+              "path": ["api", "admin", "logs"],
+              "query": [
+                { "key": "action", "value": "DELETE_USER" },
+                { "key": "description", "value": "Suppression utilisateur inactif" },
+                { "key": "targetEntity", "value": "USER" },
+                { "key": "targetId", "value": "123" }
+              ]
+            },
+            "description": "Enregistre une action admin dans les logs.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('action = DELETE_USER', () => pm.expect(json.action).to.eql('DELETE_USER'));",
+                  "pm.test('adminId présent', () => pm.expect(json.adminId).to.be.a('string'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Métriques système – Liste",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/admin/metrics",
+              "host": ["{{gateway}}"],
+              "path": ["api", "admin", "metrics"]
+            },
+            "description": "Liste toutes les métriques système enregistrées.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Métriques par nom",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/admin/metrics/API_LATENCY",
+              "host": ["{{gateway}}"],
+              "path": ["api", "admin", "metrics", "API_LATENCY"]
+            },
+            "description": "Filtre les métriques par nom.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enregistrer une métrique",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/admin/metrics?metricName=API_LATENCY&value=150",
+              "host": ["{{gateway}}"],
+              "path": ["api", "admin", "metrics"],
+              "query": [
+                { "key": "metricName", "value": "API_LATENCY" },
+                { "key": "value", "value": "150" }
+              ]
+            },
+            "description": "Enregistre une nouvelle métrique système.",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('metricName = API_LATENCY', () => pm.expect(json.metricName).to.eql('API_LATENCY'));",
+                  "pm.test('value = 150', () => pm.expect(json.value).to.eql(150));"
                 ],
                 "type": "text/javascript"
               }
@@ -1936,29 +2479,6 @@
           ]
         },
         {
-          "name": "Route publique geocode sans token → 200",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{gateway}}/api/geolocation/geocode?address=Douala",
-              "host": ["{{gateway}}"],
-              "path": ["api", "geolocation", "geocode"],
-              "query": [{ "key": "address", "value": "Douala" }]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
-        },
-        {
           "name": "Route publique plans sans token → 200",
           "request": {
             "method": "GET",
@@ -1981,6 +2501,29 @@
           ]
         },
         {
+          "name": "Route publique marketplace listings sans token → 200",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/listings/public",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "listings", "public"]
+            },
+            "description": "Les annonces publiques du Marketplace doivent être accessibles sans auth."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
           "name": "Accès Repair sans token → 401",
           "request": {
             "method": "GET",
@@ -1989,7 +2532,7 @@
               "host": ["{{gateway}}"],
               "path": ["api", "repairs", "requests", "status", "PENDING"]
             },
-            "description": "🆕 Test sécurité pour le nouveau Repair Service."
+            "description": "Test sécurité pour le Repair Service."
           },
           "event": [
             {
@@ -2012,7 +2555,60 @@
               "host": ["{{gateway}}"],
               "path": ["api", "messaging", "health"]
             },
-            "description": "🆕 Test sécurité pour le nouveau Messaging Service."
+            "description": "Test sécurité pour le Messaging Service."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accès Admin sans token → 401",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway}}/api/admin/dashboard",
+              "host": ["{{gateway}}"],
+              "path": ["api", "admin", "dashboard"]
+            },
+            "description": "Test sécurité pour le Admin Service."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accès Marketplace création sans token → 401",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{gateway}}/api/marketplace/listings",
+              "host": ["{{gateway}}"],
+              "path": ["api", "marketplace", "listings"]
+            },
+            "description": "Test sécurité pour le Marketplace Service (endpoint authentifié).",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test\",\n  \"description\": \"Test\",\n  \"category\": \"pièces\",\n  \"brand\": \"Toyota\",\n  \"price\": 10,\n  \"location\": \"Yaoundé\"\n}"
+            }
           },
           "event": [
             {

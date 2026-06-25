@@ -4,12 +4,10 @@ server:
 spring:
   application:
     name: subscription-service
-  config:
-    import: optional:configserver:http://config-server:8888
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db-postgres:5432/mecano_billing_db}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:0116}
+    url: jdbc:postgresql://db-postgres:5432/mecano_billing_db
+    username: postgres
+    password: "0116"
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -21,7 +19,6 @@ spring:
 
 eureka:
   client:
-    enabled: true
     service-url:
       defaultZone: http://discovery-server:8761/eureka/
   instance:
