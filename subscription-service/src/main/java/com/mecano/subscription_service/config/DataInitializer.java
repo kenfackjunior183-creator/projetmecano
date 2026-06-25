@@ -19,7 +19,7 @@ public class DataInitializer implements CommandLineRunner {
         if (planRepo.count() == 0) {
             planRepo.save(SubscriptionPlan.builder()
                     .level(PlanLevel.BASIC)
-                    .price(new BigDecimal("9.99"))
+                    .price(new BigDecimal("14.99"))
                     .currency("EUR")
                     .priorityScore(1)
                     .description("Visibilité standard dans votre zone")
@@ -28,7 +28,7 @@ public class DataInitializer implements CommandLineRunner {
 
             planRepo.save(SubscriptionPlan.builder()
                     .level(PlanLevel.SILVER)
-                    .price(new BigDecimal("19.99"))
+                    .price(new BigDecimal("24.99"))
                     .currency("EUR")
                     .priorityScore(2)
                     .description("Priorité moyenne — profil enrichi")
@@ -37,7 +37,7 @@ public class DataInitializer implements CommandLineRunner {
 
             planRepo.save(SubscriptionPlan.builder()
                     .level(PlanLevel.GOLD)
-                    .price(new BigDecimal("39.99"))
+                    .price(new BigDecimal("49.99"))
                     .currency("EUR")
                     .priorityScore(3)
                     .description("Priorité maximale — profil premium")

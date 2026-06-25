@@ -26,7 +26,7 @@ public class SystemMetric {
     @Column(nullable = false)
     private Long metricValue;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "recorded_at")
     private LocalDateTime collectedAt;
 
     @PrePersist

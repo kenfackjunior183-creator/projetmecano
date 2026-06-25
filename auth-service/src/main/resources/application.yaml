@@ -35,7 +35,13 @@ application:
       access-token-expiration: 900000
       refresh-token-expiration: 604800000
 
-# ✅ AJOUT MANQUANT
+# Super admin configuration (created at startup via @PostConstruct)
+app:
+  admin:
+    email: admin@mecano.com
+    password: Admin123!
+    name: Super Admin
+
 management:
   endpoints:
     web:
