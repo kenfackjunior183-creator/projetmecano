@@ -27,7 +27,7 @@ Plateforme de mise en relation entre propriétaires de véhicules et mécanicien
 ## ✅ Prérequis
 
 - [Docker](https://docs.docker.com/get-docker/) et Docker Compose (v2+)
-- [Java 17+](https://adoptium.net/) (pour le développement hors Docker)
+- [Java 21](https://adoptium.net/) (pour le développement hors Docker)
 - [Maven 3.8+](https://maven.apache.org/) (pour le développement hors Docker)
 
 ## 🚀 Démarrage rapide
@@ -43,7 +43,7 @@ cd projetmecano
 
 ```bash
 # Créer et basculer sur ta branche personnelle
-git checkout -b <nom-de-ta-branche>
+git checkout  <nom-de-ta-branche>
 
 # ... faire tes modifications ...
 
