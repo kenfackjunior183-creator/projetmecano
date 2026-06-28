@@ -1,0 +1,11 @@
+# Fichiers exclus du build Docker
+target/
+*.log
+*.tmp
+.git/
+.gitignore
+README.md
+.vscode/
+.idea/
+*.iml
+.DS_Store

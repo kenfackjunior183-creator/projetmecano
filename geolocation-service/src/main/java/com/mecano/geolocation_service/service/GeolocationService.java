@@ -1,7 +1,9 @@
 package com.mecano.geolocation_service.service;
 
 import com.mecano.geolocation_service.dto.*;
+import com.mecano.geolocation_service.entity.ClientLocation;
 import com.mecano.geolocation_service.entity.MechanicLocation;
+import com.mecano.geolocation_service.repository.ClientLocationRepository;
 import com.mecano.geolocation_service.repository.MechanicLocationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import java.util.stream.Collectors;
 public class GeolocationService {
 
     private final MechanicLocationRepository locationRepo;
+    private final ClientLocationRepository clientLocationRepo;
     private final HaversineService haversine;
 
     // ── Localisation mécanicien ─────────────────────────────────
@@ -67,5 +70,34 @@ public class GeolocationService {
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    // ── Localisation client (automobiliste en détresse) ─────────
+    @Transactional
+    public ClientLocation saveClientLocation(ClientLocationRequest req) {
+        ClientLocation loc = clientLocationRepo.findByRepairRequestId(req.getRepairRequestId())
+                .orElse(ClientLocation.builder()
+                        .clientId(req.getClientId())
+                        .repairRequestId(req.getRepairRequestId())
+                        .build());
+
+        loc.setLatitude(req.getLatitude());
+        loc.setLongitude(req.getLongitude());
+        loc.setAddress(req.getAddress());
+        loc.setActive(true);
+        return clientLocationRepo.save(loc);
+    }
+
+    public ClientLocation getClientLocationByRepairRequest(UUID repairRequestId) {
+        return clientLocationRepo.findByRepairRequestId(repairRequestId)
+                .orElseThrow(() -> new RuntimeException(
+                        "Aucune position trouvée pour la demande de panne : " + repairRequestId));
+    }
+
+    @Transactional
+    public void closeClientLocation(UUID repairRequestId) {
+        ClientLocation loc = getClientLocationByRepairRequest(repairRequestId);
+        loc.setActive(false);
+        clientLocationRepo.save(loc);
     }
 }

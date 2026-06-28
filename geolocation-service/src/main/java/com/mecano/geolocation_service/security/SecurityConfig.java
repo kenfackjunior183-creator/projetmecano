@@ -23,7 +23,13 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/**").permitAll()
-                .anyRequest().permitAll()
+                // Recherche de mécaniciens proches : public, cohérent avec
+                // la route publique déclarée dans api-gateway
+                .requestMatchers("/api/geolocation/nearby").permitAll()
+                .requestMatchers("/api/geolocation/geocode").permitAll()
+                // Tout le reste (écriture de positions, lecture client-location...)
+                // exige un token JWT valide, transmis par la gateway
+                .anyRequest().authenticated()
             )
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

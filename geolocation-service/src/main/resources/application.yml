@@ -1,41 +1,179 @@
-server:
-  port: 8083
+# ============================================================
+# GEOLOCATION-SERVICE - Configuration complète
+# ============================================================
 
+# ---------- Configuration commune à TOUS les profils ----------
 spring:
   application:
     name: geolocation-service
-  config:
-    import: optional:configserver:http://config-server:8888
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db-postgres:5432/mecano_geo_db}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:0116}
-    driver-class-name: org.postgresql.Driver
+
+  # ----- JPA / Hibernate (commun) -----
   jpa:
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
     show-sql: true
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://discovery-server:8761/eureka/
-  instance:
-    prefer-ip-address: true
+  # ----- Format des dates (commun) -----
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: UTC
 
+  # ----- Config Server (commun) -----
+  config:
+    import: optional:configserver:http://localhost:8888
+
+  cloud:
+    config:
+      enabled: true
+
+  # ----- Eureka (commun) -----
+  eureka:
+    client:
+      service-url:
+        defaultZone: http://localhost:8761/eureka/
+      register-with-eureka: true
+      fetch-registry: true
+    instance:
+      prefer-ip-address: true
+      hostname: localhost
+
+# ----- JWT (commun) -----
 application:
   security:
     jwt:
       secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  geolocation:
-    nominatim-url: https://nominatim.openstreetmap.org
-    default-radius-km: 10
+      expiration: 86400000
 
+# ----- Géolocalisation (commun) -----
+geolocation:
+  nominatim-url: https://nominatim.openstreetmap.org
+  timeout: 5000
+  max-retries: 3
+
+# ----- Logging (commun) -----
+logging:
+  level:
+    com.mecano: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+
+# ----- Actuator (commun) -----
 management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+
+---
+# ============================================================
+# PROFIL LOCAL (Développement hors Docker)
+# ============================================================
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mecano_geo_db
+    username: postgres
+    password: Dan
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+server:
+  port: 8083
+
+logging:
+  level:
+    com.mecano: DEBUG
+
+
+---
+# ============================================================
+# PROFIL DOCKER (Avec Docker Compose)
+# ============================================================
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  datasource:
+    url: jdbc:postgresql://postgres:5433/mecano_geo_db
+    username: postgres
+    password: postgres123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  eureka:
+    client:
+      service-url:
+        defaultZone: http://discovery-server:8761/eureka/
+      register-with-eureka: true
+      fetch-registry: true
+    instance:
+      prefer-ip-address: true
+      hostname: geolocation-service
+
+server:
+  port: 8083
+
+logging:
+  level:
+    com.mecano: INFO
+
+
+---
+# ============================================================
+# PROFIL TEST (Pour les tests unitaires)
+# ============================================================
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+  cloud:
+    config:
+      enabled: false
+
+server:
+  port: 0
+
+logging:
+  level:
+    com.mecano: INFO
+    org.springframework: INFO

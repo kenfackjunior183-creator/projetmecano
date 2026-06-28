@@ -1,0 +1,42 @@
+# Profil "test" — utilisé par @ActiveProfiles("test") dans les tests.
+# Doit impérativement être dans src/test/resources/ (pas src/test/)
+# pour être présent sur le classpath de test.
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+  cloud:
+    config:
+      enabled: false   # pas de tentative de contacter config-server pendant les tests
+
+# Désactive l'inscription/découverte Eureka pendant les tests
+eureka:
+  client:
+    enabled: false
+
+# IMPORTANT : doit correspondre exactement à @Value("${application.security.jwt.secret-key}")
+# utilisé par JwtAuthFilter — une vraie clé HMAC de 48+ octets encodée en Base64.
+application:
+  security:
+    jwt:
+      secret-key: dGVzdFNlY3JldEtleUZvclVuaXRUZXN0c011c3RCZTQ4Qnl0ZXNNaW5pbXVtTG9uZw==
+      expiration: 86400000
+  geolocation:
+    nominatim-url: https://nominatim.openstreetmap.org
+    timeout: 5000
+    max-retries: 3
+
+logging:
+  level:
+    com.mecano: DEBUG
+    org.hibernate.SQL: DEBUG
