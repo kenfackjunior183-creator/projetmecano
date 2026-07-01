@@ -1,0 +1,63 @@
+name: Java CI with Maven and Docker Services
+
+on:
+  push:
+    # Déclenche le test lors d'un push sur ta branche de fonctionnalité ou les branches principales
+    branches: [ "main", "develop", "feat/notification-service" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    # Définition des services Docker requis pour les tests d'intégration
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: mecano_user
+          POSTGRES_PASSWORD: mecano_password
+          POSTGRES_DB: mecano_notification_db
+        ports:
+          - 5432:5432
+        # Attend que PostgreSQL soit prêt avant de lancer les tests
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+        # Attend que RabbitMQ soit prêt
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_running"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Build and Run Tests for Notification Service
+      # Le flag -pl exécute uniquement les tests du module notification-service
+      run: mvn clean test -pl notification-service
+      # Injection des variables d'environnement pour connecter Spring Boot aux conteneurs ci-dessus
+      env:
+        SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/mecano_notification_db
+        SPRING_DATASOURCE_USERNAME: mecano_user
+        SPRING_DATASOURCE_PASSWORD: mecano_password
+        SPRING_RABBITMQ_HOST: localhost
+        SPRING_RABBITMQ_PORT: 5672

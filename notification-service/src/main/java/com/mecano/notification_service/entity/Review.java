@@ -25,8 +25,7 @@ public class Review {
     private UUID mechanicId;
 
     @Column(nullable = false)
-    @Builder.Default
-    private Integer rating = 5;
+    private Integer rating;
 
     @Column(length = 1000)
     private String comment;

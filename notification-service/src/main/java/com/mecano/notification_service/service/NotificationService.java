@@ -3,6 +3,7 @@ package com.mecano.notification_service.service;
 import com.mecano.notification_service.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -11,6 +12,9 @@ import org.springframework.stereotype.Service;
 public class NotificationService {
 
     private final EmailService emailService;
+
+    @Value("${application.notification.base-url:http://localhost:3000}")
+    private String baseUrl;
 
     // ── Inscription ─────────────────────────────────────────────
     public void notifyUserRegistered(UserRegisteredEvent event) {
@@ -119,7 +123,7 @@ public class NotificationService {
               <p>Bonjour <strong>%s</strong>,</p>
               <p>Votre abonnement <strong>%s</strong> a expiré.</p>
               <p>Renouvelez-le pour continuer à apparaître en priorité.</p>
-              <a href="http://localhost:3000/subscription"
+              <a href="%s/subscription"
                  style="background:#f97316;color:white;padding:10px 20px;
                         border-radius:5px;text-decoration:none">
                 Renouveler mon abonnement
@@ -127,7 +131,7 @@ public class NotificationService {
               <hr/>
               <p style="color:#888;font-size:12px">L'équipe Mecano</p>
             </div>
-            """.formatted(event.getFirstName(), event.getPlanLevel());
+            """.formatted(event.getFirstName(), event.getPlanLevel(), baseUrl);
         emailService.sendHtmlEmail(event.getEmail(), subject, html);
     }
 }

@@ -1,15 +1,13 @@
 server:
-  port: 8086
+  port: 8085
 
 spring:
   application:
-    name: repair-service
-  config:
-    import: optional:configserver:http://config-server:8888
+    name: notification-service
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db-postgres:5432/mecano_repair_db}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:sage237@}
+    url: jdbc:postgresql://db-postgres:5432/mecano_notif_db
+    username: postgres
+    password: "sage237@"
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -18,6 +16,21 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # Mailtrap SMTP
+  mail:
+    host: sandbox.smtp.mailtrap.io
+    port: 2525
+    username: ${MAILTRAP_USERNAME}
+    password: ${MAILTRAP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  # RabbitMQ
   rabbitmq:
     host: rabbitmq
     port: 5672
@@ -26,6 +39,7 @@ spring:
 
 eureka:
   client:
+    enabled: true
     service-url:
       defaultZone: http://discovery-server:8761/eureka/
   instance:
@@ -35,6 +49,10 @@ application:
   security:
     jwt:
       secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  notification:
+    from-email: noreply@mecano.com
+    from-name: Mecano App
+    base-url: http://localhost:3000
 
 management:
   endpoints:

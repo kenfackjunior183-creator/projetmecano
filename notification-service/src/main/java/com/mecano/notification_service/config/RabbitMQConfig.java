@@ -20,6 +20,10 @@ public class RabbitMQConfig {
     public static final String QUEUE_REPAIR_REQUESTED   = "queue.repair.requested";
     public static final String QUEUE_SUBSCRIPTION_EXPIRED = "queue.subscription.expired";
 
+    // ── Dead Letter Queue ───────────────────────────────────────
+    public static final String DLX_MECANO = "mecano.dlx";
+    public static final String QUEUE_DLQ = "queue.dlq";
+
     // ── Routing keys ────────────────────────────────────────────
     public static final String KEY_USER_REGISTERED      = "user.registered";
     public static final String KEY_PAYMENT_CONFIRMED    = "payment.confirmed";
@@ -34,16 +38,39 @@ public class RabbitMQConfig {
 
     // ── Queues ──────────────────────────────────────────────────
     @Bean public Queue queueUserRegistered() {
-        return QueueBuilder.durable(QUEUE_USER_REGISTERED).build();
+        return QueueBuilder.durable(QUEUE_USER_REGISTERED)
+                .withArgument("x-dead-letter-exchange", DLX_MECANO)
+                .withArgument("x-dead-letter-routing-key", "dlq")
+                .build();
     }
     @Bean public Queue queuePaymentConfirmed() {
-        return QueueBuilder.durable(QUEUE_PAYMENT_CONFIRMED).build();
+        return QueueBuilder.durable(QUEUE_PAYMENT_CONFIRMED)
+                .withArgument("x-dead-letter-exchange", DLX_MECANO)
+                .withArgument("x-dead-letter-routing-key", "dlq")
+                .build();
     }
     @Bean public Queue queueRepairRequested() {
-        return QueueBuilder.durable(QUEUE_REPAIR_REQUESTED).build();
+        return QueueBuilder.durable(QUEUE_REPAIR_REQUESTED)
+                .withArgument("x-dead-letter-exchange", DLX_MECANO)
+                .withArgument("x-dead-letter-routing-key", "dlq")
+                .build();
     }
     @Bean public Queue queueSubscriptionExpired() {
-        return QueueBuilder.durable(QUEUE_SUBSCRIPTION_EXPIRED).build();
+        return QueueBuilder.durable(QUEUE_SUBSCRIPTION_EXPIRED)
+                .withArgument("x-dead-letter-exchange", DLX_MECANO)
+                .withArgument("x-dead-letter-routing-key", "dlq")
+                .build();
+    }
+
+    // ── Dead Letter Exchange & Queue ────────────────────────────
+    @Bean public FanoutExchange dlxExchange() {
+        return new FanoutExchange(DLX_MECANO);
+    }
+    @Bean public Queue queueDlq() {
+        return QueueBuilder.durable(QUEUE_DLQ).build();
+    }
+    @Bean public Binding bindingDlq() {
+        return BindingBuilder.bind(queueDlq()).to(dlxExchange());
     }
 
     // ── Bindings ─────────────────────────────────────────────────

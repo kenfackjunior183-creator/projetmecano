@@ -18,9 +18,9 @@ public class ReviewRequest {
     @NotNull
     private UUID mechanicId;
 
+    @NotNull
     @Min(1)
     @Max(5)
-    @NotNull
     private Integer rating;
 
     private String comment;

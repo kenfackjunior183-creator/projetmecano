@@ -17,25 +17,49 @@ public class NotificationListener {
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_USER_REGISTERED)
     public void onUserRegistered(UserRegisteredEvent event) {
-        log.info("📨 Event reçu : UserRegistered → {}", event.getEmail());
-        notificationService.notifyUserRegistered(event);
+        try {
+            log.info("📨 Event reçu : UserRegistered → {}", event.getEmail());
+            notificationService.notifyUserRegistered(event);
+            log.info("✅ Notification envoyée pour UserRegistered → {}", event.getEmail());
+        } catch (Exception e) {
+            log.error("❌ Erreur traitement UserRegistered pour {} : {}", event.getEmail(), e.getMessage(), e);
+            throw e; // Rejette le message pour retry / DLQ
+        }
     }
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_PAYMENT_CONFIRMED)
     public void onPaymentConfirmed(PaymentConfirmedEvent event) {
-        log.info("📨 Event reçu : PaymentConfirmed → {}", event.getEmail());
-        notificationService.notifyPaymentConfirmed(event);
+        try {
+            log.info("📨 Event reçu : PaymentConfirmed → {}", event.getEmail());
+            notificationService.notifyPaymentConfirmed(event);
+            log.info("✅ Notification envoyée pour PaymentConfirmed → {}", event.getEmail());
+        } catch (Exception e) {
+            log.error("❌ Erreur traitement PaymentConfirmed pour {} : {}", event.getEmail(), e.getMessage(), e);
+            throw e;
+        }
     }
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_REPAIR_REQUESTED)
     public void onRepairRequested(RepairRequestedEvent event) {
-        log.info("📨 Event reçu : RepairRequested → {}", event.getAutomobilistEmail());
-        notificationService.notifyRepairRequested(event);
+        try {
+            log.info("📨 Event reçu : RepairRequested → {} / {}", event.getAutomobilistEmail(), event.getMechanicEmail());
+            notificationService.notifyRepairRequested(event);
+            log.info("✅ Notifications envoyées pour RepairRequested");
+        } catch (Exception e) {
+            log.error("❌ Erreur traitement RepairRequested : {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_SUBSCRIPTION_EXPIRED)
     public void onSubscriptionExpired(SubscriptionExpiredEvent event) {
-        log.info("📨 Event reçu : SubscriptionExpired → {}", event.getEmail());
-        notificationService.notifySubscriptionExpired(event);
+        try {
+            log.info("📨 Event reçu : SubscriptionExpired → {}", event.getEmail());
+            notificationService.notifySubscriptionExpired(event);
+            log.info("✅ Notification envoyée pour SubscriptionExpired → {}", event.getEmail());
+        } catch (Exception e) {
+            log.error("❌ Erreur traitement SubscriptionExpired pour {} : {}", event.getEmail(), e.getMessage(), e);
+            throw e;
+        }
     }
 }

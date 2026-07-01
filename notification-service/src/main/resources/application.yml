@@ -1,16 +1,19 @@
 server:
-  port: 8085
+  port: 8086
 
 spring:
   application:
     name: notification-service
   config:
     import: optional:configserver:http://config-server:8888
+  cloud:
+    compatibility-verifier:
+      enabled: false
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db-postgres:5432/mecano_notif_db}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/mecano_notif_db}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:0116}
+    password: ${SPRING_DATASOURCE_PASSWORD:sage237@}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -19,13 +22,12 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-
   # Mailtrap SMTP
   mail:
-    host: sandbox.smtp.mailtrap.io
-    port: 2525
-    username: ${MAILTRAP_USERNAME:Junior Kenfack}
-    password: ${MAILTRAP_PASSWORD:23072005@ju}
+    host: ${MAIL_HOST:sandbox.smtp.mailtrap.io}
+    port: ${MAIL_PORT:2525}
+    username: ${MAILTRAP_USERNAME:}
+    password: ${MAILTRAP_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -33,25 +35,30 @@ spring:
           starttls:
             enable: true
 
-  # RabbitMQ
+  # RabbitMQ (désactivé pour test local)
   rabbitmq:
-    host: rabbitmq
-    port: 5672
-    username: guest
-    password: guest
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        auto-startup: false
 
 eureka:
   client:
-    enabled: true
-    service-url:
-      defaultZone: http://discovery-server:8761/eureka/
+    enabled: false
   instance:
     prefer-ip-address: true
 
 application:
+  security:
+    jwt:
+      secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
   notification:
     from-email: noreply@mecano.com
     from-name: Mecano App
+    base-url: ${BASE_URL:http://localhost:3000}
 
 management:
   endpoints:

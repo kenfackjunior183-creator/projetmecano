@@ -4,7 +4,7 @@ services:
     container_name: postgres_db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "0116"
+      POSTGRES_PASSWORD: "sage237@"
       POSTGRES_DB: mecano_auth_db
     ports:
       - "5433:5432"
@@ -88,7 +88,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-postgres:5432/mecano_auth_db
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=0116
+      - SPRING_DATASOURCE_PASSWORD=sage237@
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
@@ -110,7 +110,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-postgres:5432/mecano_users_db
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=0116
+      - SPRING_DATASOURCE_PASSWORD=sage237@
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
@@ -132,7 +132,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-postgres:5432/mecano_geo_db
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=0116
+      - SPRING_DATASOURCE_PASSWORD=sage237@
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
@@ -154,7 +154,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-postgres:5432/mecano_billing_db
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=0116
+      - SPRING_DATASOURCE_PASSWORD=sage237@
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
@@ -167,7 +167,7 @@ services:
       network: host
     container_name: notification-service
     ports:
-      - "8085:8085"
+      - "8085:8086"
     depends_on:
       db-postgres:
         condition: service_healthy
@@ -180,7 +180,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-postgres:5432/mecano_notif_db
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=0116
+      - SPRING_DATASOURCE_PASSWORD=sage237@
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
@@ -208,7 +208,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-postgres:5432/mecano_repair_db
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=0116
+      - SPRING_DATASOURCE_PASSWORD=sage237@
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
@@ -253,7 +253,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-postgres:5432/mecano_admin_db
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=0116
+      - SPRING_DATASOURCE_PASSWORD=sage237@
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
@@ -277,7 +277,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-postgres:5432/mecano_marketplace_db
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=0116
+      - SPRING_DATASOURCE_PASSWORD=sage237@
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true

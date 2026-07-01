@@ -26,13 +26,6 @@ public class NotificationController {
         return ResponseEntity.ok("Notification Service UP ✅");
     }
 
-    @PostMapping("/send/direct")
-    public ResponseEntity<String> sendDirect(
-            @RequestBody UserRegisteredEvent event) {
-        notificationService.notifyUserRegistered(event);
-        return ResponseEntity.ok("Email envoyé directement");
-    }
-
     // ── Gestion des avis (reviews) ─────────────────────────────
     @PostMapping("/reviews")
     public ResponseEntity<Review> createReview(@Valid @RequestBody ReviewRequest req) {

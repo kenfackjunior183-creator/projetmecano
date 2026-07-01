@@ -7,7 +7,7 @@ spring:
   datasource:
     url: jdbc:postgresql://db-postgres:5432/mecano_admin_db
     username: postgres
-    password: "0116"
+    password: "sage237@"
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:

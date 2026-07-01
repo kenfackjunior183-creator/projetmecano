@@ -4,6 +4,7 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -35,6 +36,7 @@ public class EmailService {
             log.info("✅ Email envoyé à {} : {}", to, subject);
         } catch (Exception e) {
             log.error("❌ Erreur envoi email à {} : {}", to, e.getMessage());
+            throw new RuntimeException("Échec envoi email à " + to + " : " + e.getMessage(), e);
         }
     }
 
@@ -49,7 +51,8 @@ public class EmailService {
             mailSender.send(message);
             log.info("✅ Email simple envoyé à {}", to);
         } catch (Exception e) {
-            log.error("❌ Erreur email simple : {}", e.getMessage());
+            log.error("❌ Erreur email simple à {} : {}", to, e.getMessage());
+            throw new RuntimeException("Échec envoi email simple à " + to + " : " + e.getMessage(), e);
         }
     }
 }
