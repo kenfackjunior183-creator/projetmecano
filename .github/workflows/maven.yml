@@ -52,8 +52,9 @@ jobs:
         cache: 'maven'
 
     - name: Build and Run Tests for Notification Service
-      # Le flag -pl exécute uniquement les tests du module notification-service
-      run: mvn clean test -pl notification-service
+      # On se place directement dans le dossier du microservice (pas de multi-module Maven ici)
+      working-directory: ./notification-service
+      run: mvn clean test
       # Injection des variables d'environnement pour connecter Spring Boot aux conteneurs ci-dessus
       env:
         SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/mecano_notification_db
